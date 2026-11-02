@@ -112,7 +112,7 @@
   });
 
   function listenOrders(){
-    const q=query(collection(db,"pedidos"),where("room","==",roomId),orderBy("createdAt","desc"));
+   const q=query(collection(db,"pedidos"),where("room","==",roomId));
     unsubscribe=onSnapshot(q,snap=>{
       const all=snap.docs.map(d=>({id:d.id,...d.data()}));
       const pending=all.filter(o=>o.status!=="ready");
@@ -137,7 +137,7 @@
       <div class="muted">Pedido ${date}</div><div class="items">${escapeHtml(items)}</div>${o.notes?`<div class="muted">Nota: ${escapeHtml(o.notes)}</div>`:""}
       <div class="actions">${isReady?`<button class="secondary" data-action="undo">Volver a pendientes</button>`:`<button class="primary" data-action="ready">Marcar preparado ✓</button>`}</div>`;
       el.querySelector("button").addEventListener("click",async()=>{
-        await updateDoc(doc(db,"orders",o.id),{status:isReady?"pending":"ready"});
+        await updateDoc(doc(db,"pedidos",o.id),{status:isReady?"pending":"ready"});
       });
       target.appendChild(el);
     });
