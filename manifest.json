@@ -1,0 +1,9 @@
+{
+  "name": "Pedidos de cocina",
+  "short_name": "Pedidos",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f4",
+  "theme_color": "#10251f",
+  "icons": []
+}

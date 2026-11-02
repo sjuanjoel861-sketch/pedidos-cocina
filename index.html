@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10251f">
+  <meta name="description" content="Pedidos en tiempo real para tu cocina">
+  <link rel="manifest" href="manifest.json">
+  <title>Pedidos • Cocina</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#18231f;background:#f3f6f4}
+    *{box-sizing:border-box}body{margin:0}header{background:#10251f;color:white;padding:18px 16px;position:sticky;top:0;z-index:2}
+    header h1{font-size:21px;margin:0}header p{margin:4px 0 0;color:#c5d6cf;font-size:13px}
+    main{max-width:850px;margin:auto;padding:16px}.panel{background:white;border:1px solid #e1e9e4;border-radius:18px;padding:16px;margin:0 0 14px;box-shadow:0 4px 16px #10251f0a}
+    h2{font-size:18px;margin:0 0 12px}.muted{color:#63736b;font-size:13px}.tabs{display:flex;gap:8px;margin-bottom:14px}
+    button,.tab{border:0;border-radius:12px;padding:13px 15px;font-weight:700;font-size:15px;cursor:pointer}
+    .tab{background:#e6eee9;color:#244438;flex:1}.tab.active,.primary{background:#176b4d;color:white}.secondary{background:#e8efeb;color:#1b4938}
+    label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}input,textarea,select{width:100%;padding:13px;border:1px solid #ccd8d1;border-radius:11px;font:inherit;background:white}
+    textarea{min-height:75px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.productrow{display:grid;grid-template-columns:1fr 76px;gap:8px;margin:8px 0}
+    .productrow input{min-width:0}.productrow button{background:#fbe9e7;color:#9d3026;padding:8px}
+    .wide{width:100%;margin-top:14px}.order{border:1px solid #dfe8e2;border-radius:15px;padding:14px;margin:10px 0}
+    .orderhead{display:flex;justify-content:space-between;gap:8px;align-items:center}.order h3{margin:0;font-size:17px}
+    .tag{font-size:11px;font-weight:800;border-radius:30px;padding:5px 9px;background:#fff0d6;color:#80520b}
+    .tag.ready{background:#dcf5e7;color:#17623d}.items{white-space:pre-wrap;line-height:1.55;margin:10px 0}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1}
+    .hidden{display:none!important}.status{font-size:12px;margin-top:8px}.ok{color:#176b4d}.error{color:#b42318}
+    .empty{text-align:center;padding:28px;color:#63736b}.setup{background:#fff7e8;border-color:#f0d9a9}
+    @media(max-width:520px){.row{grid-template-columns:1fr}.orderhead{align-items:flex-start}}
+  </style>
+</head>
+<body>
+<header><h1>🍽️ Pedidos de cocina</h1><p>Pedidos sincronizados en tiempo real</p></header>
+<main>
+  <section class="panel setup" id="setupPanel">
+    <h2>Conectar la aplicación</h2>
+    <p class="muted">Firebase ya está configurado para PedidosCocina. Usa el mismo código de negocio en los dos celulares.</p>
+    <label>Código del negocio (el mismo en ambos celulares)</label>
+    <input id="room" placeholder="Ej. local-centro" autocomplete="off">
+    <label>Configuración Firebase (JSON)</label>
+    <textarea id="firebaseConfig" readonly></textarea>
+    <button class="primary wide" id="connectBtn">Conectar</button>
+    <div class="status" id="setupStatus"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <div class="panel">
+      <div class="row">
+        <div><strong id="connectionLabel">Conectando…</strong><div class="muted" id="roomLabel"></div></div>
+        <button class="secondary" id="wakeBtn">Mantener pantalla activa</button>
+      </div>
+      <div class="status muted" id="wakeStatus">Activa esta opción en el celular de cocina.</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" id="takeTab">📝 Tomar pedido</button>
+      <button class="tab" id="kitchenTab">👩‍🍳 Cocina <span id="pendingCount"></span></button>
+    </div>
+    <section id="takeView">
+      <div class="panel">
+        <h2>Nuevo pedido</h2>
+        <div class="row">
+          <div><label>Mesa / cliente</label><input id="customer" placeholder="Ej. Mesa 4 o Juan"></div>
+          <div><label>Tipo</label><select id="kind"><option>En mesa</option><option>Para llevar</option><option>Entrega</option></select></div>
+        </div>
+        <label>Productos y cantidades</label>
+        <div id="products">
+          <div class="productrow"><input class="product-name" placeholder="Ej. 1 seco de pollo"><input class="product-qty" type="number" min="1" value="1" aria-label="Cantidad"></div>
+        </div>
+        <button class="secondary" id="addProduct">＋ Añadir producto</button>
+        <label>Observaciones para cocina</label>
+        <textarea id="notes" placeholder="Ej. Sin cebolla, poco arroz…"></textarea>
+        <button class="primary wide" id="sendOrder">ENVIAR A COCINA</button>
+        <div class="status" id="sendStatus"></div>
+      </div>
+    </section>
+    <section id="kitchenView" class="hidden">
+      <div class="panel">
+        <div class="row"><div><h2 style="margin:0">Pedidos pendientes</h2><div class="muted">Se actualizan automáticamente</div></div><button class="secondary" id="soundBtn">🔔 Activar sonido</button></div>
+        <div class="status muted" id="soundStatus">Activa el sonido una vez en este celular.</div>
+        <div id="orders"></div>
+      </div>
+      <div class="panel"><h2>Pedidos preparados</h2><div id="readyOrders"></div></div>
+    </section>
+  </div>
+</main>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const $ = id => document.getElementById(id);
+  let db, roomId, unsubscribe, wakeLock = null, soundEnabled = false, knownIds = new Set(), firstSnapshot = true;
+  $("firebaseConfig").value = "{\"apiKey\":\"AIzaSyDsBFyz4G_qTQfJHhtvugfPqpHcUfZ45Dg\",\"authDomain\":\"pedidoscocina-b6a94.firebaseapp.com\",\"projectId\":\"pedidoscocina-b6a94\",\"storageBucket\":\"pedidoscocina-b6a94.firebasestorage.app\",\"messagingSenderId\":\"775650095814\",\"appId\":\"1:775650095814:web:00cb0cc70ee806e052ddc7\"}";
+  const saved = localStorage.getItem("pedidoConfig");
+  if(saved){ try { const s=JSON.parse(saved); $("room").value=s.room||"local-01"; }catch{} }
+  else { $("room").value = "local-01"; }
+
+  $("connectBtn").addEventListener("click", async () => {
+    const status=$("setupStatus"); status.className="status"; status.textContent="Conectando…";
+    try{
+      roomId=$("room").value.trim();
+      if(!roomId) throw new Error("Escribe el código del negocio.");
+      const config=JSON.parse($("firebaseConfig").value);
+      const app=initializeApp(config);
+      const auth=getAuth(app); await signInAnonymously(auth);
+      db=getFirestore(app);
+      localStorage.setItem("pedidoConfig",JSON.stringify({room:roomId}));
+      $("setupPanel").classList.add("hidden"); $("app").classList.remove("hidden");
+      $("roomLabel").textContent="Negocio: "+roomId;
+      $("connectionLabel").textContent="🟢 Conectado";
+      listenOrders();
+    }catch(e){status.className="status error";status.textContent="No se pudo conectar: "+e.message;}
+  });
+
+  function listenOrders(){
+    const q=query(collection(db,"pedidos"),where("room","==",roomId),orderBy("createdAt","desc"));
+    unsubscribe=onSnapshot(q,snap=>{
+      const all=snap.docs.map(d=>({id:d.id,...d.data()}));
+      const pending=all.filter(o=>o.status!=="ready");
+      const ready=all.filter(o=>o.status==="ready").slice(0,20);
+      $("pendingCount").textContent=pending.length?`(${pending.length})`:"";
+      renderList(pending,$("orders"),false); renderList(ready,$("readyOrders"),true);
+      if(!firstSnapshot && soundEnabled){
+        snap.docChanges().forEach(change=>{if(change.type==="added" && !knownIds.has(change.doc.id)) beep();});
+      }
+      all.forEach(o=>knownIds.add(o.id)); firstSnapshot=false;
+    },e=>{$("connectionLabel").textContent="🔴 Error de conexión";$("connectionLabel").className="error";console.error(e);});
+  }
+
+  function renderList(list,target,isReady){
+    target.innerHTML="";
+    if(!list.length){target.innerHTML='<div class="empty">No hay pedidos '+(isReady?"preparados":"pendientes")+'.</div>';return;}
+    list.forEach(o=>{
+      const el=document.createElement("article");el.className="order";
+      const date=o.createdAt?.toDate?o.createdAt.toDate().toLocaleTimeString("es-EC",{hour:"2-digit",minute:"2-digit"}):"Ahora";
+      const items=(o.items||[]).map(i=>`${i.qty} × ${i.name}`).join("\n");
+      el.innerHTML=`<div class="orderhead"><h3>${escapeHtml(o.customer||"Sin nombre")} · ${escapeHtml(o.kind||"")}</h3><span class="tag ${isReady?"ready":""}">${isReady?"PREPARADO":"PENDIENTE"}</span></div>
+      <div class="muted">Pedido ${date}</div><div class="items">${escapeHtml(items)}</div>${o.notes?`<div class="muted">Nota: ${escapeHtml(o.notes)}</div>`:""}
+      <div class="actions">${isReady?`<button class="secondary" data-action="undo">Volver a pendientes</button>`:`<button class="primary" data-action="ready">Marcar preparado ✓</button>`}</div>`;
+      el.querySelector("button").addEventListener("click",async()=>{
+        await updateDoc(doc(db,"orders",o.id),{status:isReady?"pending":"ready"});
+      });
+      target.appendChild(el);
+    });
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+  function beep(){
+    try{const C=window.AudioContext||window.webkitAudioContext;const ctx=new C();const osc=ctx.createOscillator();const gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.frequency.value=880;gain.gain.value=.16;osc.start();osc.stop(ctx.currentTime+.22);osc.onended=()=>ctx.close();}catch{}
+  }
+  $("addProduct").onclick=()=>{const row=document.createElement("div");row.className="productrow";row.innerHTML='<input class="product-name" placeholder="Nombre del producto"><input class="product-qty" type="number" min="1" value="1" aria-label="Cantidad">';$("products").appendChild(row);};
+  $("sendOrder").onclick=async()=>{
+    const status=$("sendStatus");status.className="status";status.textContent="";
+    const items=[...document.querySelectorAll("#products .productrow")].map(r=>({name:r.querySelector(".product-name").value.trim(),qty:Math.max(1,Number(r.querySelector(".product-qty").value)||1)})).filter(i=>i.name);
+    if(!items.length){status.className="status error";status.textContent="Añade al menos un producto.";return;}
+    try{
+      await addDoc(collection(db,"pedidos"),{room:roomId,customer:$("customer").value.trim()||"Sin nombre",kind:$("kind").value,items,notes:$("notes").value.trim(),status:"pending",createdAt:serverTimestamp()});
+      $("customer").value="";$("notes").value="";$("products").innerHTML='<div class="productrow"><input class="product-name" placeholder="Ej. 1 seco de pollo"><input class="product-qty" type="number" min="1" value="1" aria-label="Cantidad"></div>';
+      status.className="status ok";status.textContent="✓ Pedido enviado a cocina.";
+    }catch(e){status.className="status error";status.textContent="No se pudo enviar: "+e.message;}
+  };
+  $("takeTab").onclick=()=>show("take"); $("kitchenTab").onclick=()=>show("kitchen");
+  function show(which){$("takeView").classList.toggle("hidden",which!=="take");$("kitchenView").classList.toggle("hidden",which!=="kitchen");$("takeTab").classList.toggle("active",which==="take");$("kitchenTab").classList.toggle("active",which==="kitchen");}
+  $("soundBtn").onclick=()=>{beep();soundEnabled=true;$("soundStatus").textContent="Sonido activado. Mantén esta pantalla abierta para escuchar nuevos pedidos.";$("soundStatus").className="status ok";};
+  $("wakeBtn").onclick=async()=>{
+    try{
+      if(!("wakeLock" in navigator)) throw new Error("Este navegador no admite mantener la pantalla activa. Revisa los ajustes de pantalla del celular.");
+      wakeLock=await navigator.wakeLock.request("screen");
+      $("wakeStatus").textContent="✓ Pantalla activa mientras esta página esté visible.";
+      $("wakeStatus").className="status ok";
+      wakeLock.addEventListener("release",()=>{$("wakeStatus").textContent="La pantalla puede apagarse si sales de la aplicación.";});
+    }catch(e){$("wakeStatus").textContent=e.message;$("wakeStatus").className="status error";}
+  };
+  document.addEventListener("visibilitychange",async()=>{if(document.visibilityState==="visible"&&wakeLock){try{wakeLock=await navigator.wakeLock.request("screen");}catch{}}});
+  if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
